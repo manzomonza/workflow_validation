@@ -1,0 +1,140 @@
+---
+title: "Workflow Validation"
+author: "M. Manzo"
+date: '2023-05-03'
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r comparisons, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(magrittr)
+
+extract_chr = function(locusstring){
+  chr = stringr::str_extract(locusstring, pattern = 'chr.+?(?=:)')
+  return(chr)
+}
+ 
+extract_start = function(locusstring){
+  start = stringr::str_extract(locusstring, pattern = '(?<=chr.{1,2}:)\\d+')
+  start = as.numeric(start)
+return(start)
+}
+ 
+read_foi = function(filepath){
+  foi = readr::read_tsv(filepath)
+  foi$filepath = filepath
+  return(foi)
+}
+
+return_discordant_coordinates = function(input_file, subset_table){
+  toi = subset(input_file, uid %in% subset_table$uid)
+  toi = dplyr::select(toi, locus, filepath)
+  toi$chr = extract_chr(toi$locus)
+  toi$start = extract_start(toi$locus)
+  toi$end = extract_start(toi$locus)
+  toi = dplyr::relocate(toi, chr, start, end)
+  toi = dplyr::select(toi, -locus)
+  return(toi)
+}
+
+```
+
+## Aggregate file comparisons by directory structure
+```{r}
+preps = list.files(pattern = "prep_snv.txt", recursive = TRUE)
+path_table = data.frame(dirs = NA, snv_txt = preps)
+path_table$dirs = dirname(dirname(path_table$snv_txt))
+path_table_ls = dplyr::group_by(path_table, dirs) %>% dplyr::group_split()
+```
+
+
+```{r}
+snv_read = function(filepath){
+  foi = readr::read_tsv(filepath)
+  foi = tidyr::unite(foi, col = 'uid', c(gene,coding,amino_acid_change,locus), remove = FALSE, sep = "__")
+  foi$filepath = filepath
+  foi = dplyr::relocate(foi, percent_frequency)
+  base_name = basename(dirname(unique(foi$filepath)))
+  colnames(foi) = gsub("percent_frequency", base_name, colnames(foi))
+  return(foi)
+}
+
+variant_complete_table = function(snv_path_1,snv_path_2){
+  f1 = snv_read(snv_path_1)
+  f2 = snv_read(snv_path_2)
+  fa1 = dplyr::select(f1, uid, 1) %>% dplyr::distinct()
+  fa2 = dplyr::select(f2, uid, 1) %>% dplyr::distinct()
+  complete_table = dplyr::full_join(fa1,fa2, by = c("uid"))
+  return(complete_table)
+}
+```
+
+```{r}
+variant_subset_table = function(complete_table){
+  numeric_table = dplyr::select(complete_table, where(is.numeric))
+  missing_hits = complete_table$uid[which(is.na(rowMeans(numeric_table)))]
+  if(identical(missing_hits, character(0))){
+    return(NA)
+  }
+  subset_table = subset(complete_table, uid %in% missing_hits)
+  subset_table = tidyr::pivot_longer(subset_table,-c(uid)) %>%
+  dplyr::filter(!is.na(value))
+  #subset_table_ls = dplyr::group_by(subset_table, name) %>% dplyr::group_split()
+  return(subset_table)
+}
+```
+
+
+```{r, eval=FALSE}
+return_discordant_variant_coordinates =  function(snv_path_1,snv_path_2){
+  complete_table = variant_complete_table(snv_path_1, snv_path_2)
+  subset_table = variant_subset_table(complete_table)
+  if(is.na(subset_table)){
+    return(NA)
+  }
+  subset_table_ls = dplyr::group_by(subset_table, name) %>% dplyr::group_split()
+  f1 = snv_read(snv_path_1)
+  f2 = snv_read(snv_path_2)
+  if(length(subset_table_ls)>1){
+    if(is.na(subset_table_ls[[1]])){
+      list_1 = NA
+    }else{
+      list_1 = return_discordant_coordinates(f1, subset_table_ls[[1]])
+    }
+    if(is.na(subset_table_ls[[2]])){
+      list_2 = NA
+    }else{
+      list_2 = return_discordant_coordinates(f2, subset_table_ls[[2]])  
+    }
+      return(dplyr::bind_rows(list_1, list_2))
+  }else{
+     list_1 = return_discordant_coordinates(f1, subset_table_ls[[1]])
+     return(list_1)
+  }
+}
+```
+
+## Loop over all entries
+```{r}
+new_list = list()
+for (i in seq_along(path_table_ls)){
+  # f1 = snv_read(snv_path_1)
+  # f2 = snv_read(snv_path_2)
+  #f_total = dplyr::bind_rows(f1, f2)
+  complete_table = variant_complete_table(path_table_ls[[i]]$snv_txt[1],
+                                                        path_table_ls[[i]]$snv_txt[2])
+  new_list[[i]] = variant_subset_table(complete_table)
+}
+
+res = dplyr::bind_rows(new_list[!is.na(new_list)])
+res = tidyr::separate(res, col = 'uid', into = c('gene','coding','amino_acid_change','locus'),sep = "__")
+res$chr = extract_chr(res$locus)
+res$end = extract_start(res$locus)
+res$start = extract_start(res$locus)
+res = dplyr::relocate(res, chr, start, end)
+readr::write_tsv(res, "Discordant_variant_list.tsv")
+
+```
+
