@@ -18,3 +18,4 @@ html_filename = paste0(opt$dir, "/validation_report.html")
 rmarkdown::render('/home/ionadmin/github_app/workflow_validation/report.Rmd',
                   params = list(diroi = opt$dir),
                   output_file = html_filename)
+
