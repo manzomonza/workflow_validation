@@ -1,8 +1,10 @@
 ---
-title: "Workflow Validation"
-author: "M. Manzo"
-date: '2023-05-03'
+title: "Workflow validation"
+author: "Molecular Diagnostic Unit -- University Hospital Basel"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
 output: html_document
+params:
+  diroi: ''
 editor_options: 
   chunk_output_type: console
 ---
@@ -43,7 +45,7 @@ return_discordant_coordinates = function(input_file, subset_table){
 
 ## Aggregate file comparisons by directory structure
 ```{r}
-preps = list.files(pattern = "prep_snv.txt", recursive = TRUE)
+preps = list.files(dir = opt$diroi, pattern = "prep_snv.txt", recursive = TRUE)
 path_table = data.frame(dirs = NA, snv_txt = preps)
 path_table$dirs = dirname(dirname(path_table$snv_txt))
 path_table_ls = dplyr::group_by(path_table, dirs) %>% dplyr::group_split()
@@ -134,7 +136,7 @@ res$chr = extract_chr(res$locus)
 res$end = extract_start(res$locus)
 res$start = extract_start(res$locus)
 res = dplyr::relocate(res, chr, start, end)
-readr::write_tsv(res, "Discordant_variant_list.tsv")
+readr::write_tsv(res, paste0(opt$diroi,"/Discordant_variant_list.tsv"))
 
 ```
 

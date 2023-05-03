@@ -8,8 +8,8 @@ opt_parser = OptionParser(option_list=option_list);
 opt = parse_args(opt_parser)
 
 
-dir.create(paste0(opt$dir, "/validation_report"))
-html_filename = paste0(opt$dir, "/GNXS_QC_report/GNXS_report.html")
+#dir.create(paste0(opt$dir, "/validation_report"))
+html_filename = paste0(opt$dir, "/validation_report.html")
 
 # rmarkdown::render('~/USB/USB_Diagnostics/GNXS_reports/report.Rmd',
 #                   params = list(diroi = opt$dir),
