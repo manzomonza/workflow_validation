@@ -10,10 +10,34 @@ editor_options:
 ---
 
 ```{r comparisons, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
 library(magrittr)
 diroi = params$diroi
+```
 
+
+```{r function, include=FALSE}
+## FUNCTIONS
+extract_parameters_from_dirname = function(watchdog_dirpath){
+  mod_path = gsub("-",'_',watchdog_dirpath)
+  rec = stringr::str_split(mod_path, pattern ="_", simplify = FALSE)[[1]]
+  rec = rec[1:4]
+  parameters = data.frame(name = watchdog_dirpath,
+                            pcr_id = rec[1],
+                            Bno = rec[2],
+                          panel = rec[3],
+                          wf_version = rec[4])
+  return(parameters)
+}
+dload_DT = function(data_table){
+  data_table %>%
+  DT::datatable(extensions = 'Buttons',
+            options = list(dom = 'Blfrtip',
+                           buttons = c('copy', 'csv', 'excel', 'pdf', 'print'),
+                           lengthMenu = list(c(25,50,-1),
+                                             c(25,50,"All"))))
+}
 extract_chr = function(locusstring){
   chr = stringr::str_extract(locusstring, pattern = 'chr.+?(?=:)')
   return(chr)
@@ -41,19 +65,30 @@ return_discordant_coordinates = function(input_file, subset_table){
   toi = dplyr::select(toi, -locus)
   return(toi)
 }
-
-```
-
-## Aggregate file comparisons by directory structure
-```{r}
-preps = list.files(path = diroi, pattern = "prep_snv.txt", recursive = TRUE, full.names = TRUE)
-path_table = data.frame(dirs = NA, snv_txt = preps)
-path_table$dirs = dirname(dirname(path_table$snv_txt))
-path_table_ls = dplyr::group_by(path_table, dirs) %>% dplyr::group_split()
-```
-
-
-```{r}
+join_parameters_and_res = function(results_table){
+  results_table = dplyr::filter(results_table, !is.na(value))
+  parameters = dplyr::bind_rows(lapply(results_table$name,extract_parameters_from_dirname))
+  joined_table = dplyr::left_join(results_table, parameters) 
+  joined_table = dplyr::distinct(joined_table)
+  return(joined_table)
+}
+count_variant_wf_version = function(parameter_table){
+  parameter_table = dplyr::select(parameter_table,-name,-locus) %>%
+  dplyr::group_by(chr, start, end,gene,coding,amino_acid_change,wf_version) %>%
+  dplyr::count(sort = TRUE) %>%
+  tidyr::pivot_wider(names_from = wf_version,
+                     values_from = n)
+  return(parameter_table)
+}
+add_coordinates = function(res_list){
+  res_table = dplyr::bind_rows(res_list[!is.na(res_list)])
+  res_table = tidyr::separate(res_table, col = 'uid', into = c('gene','coding','amino_acid_change','locus'),sep = "__", remove = FALSE)
+  res_table$chr = extract_chr(res_table$locus)
+  res_table$end = extract_start(res_table$locus)
+  res_table$start = extract_start(res_table$locus)
+  res_table = dplyr::relocate(res_table, chr, start, end)
+  return(res_table)
+}
 snv_read = function(filepath){
   foi = readr::read_tsv(filepath)
   foi = tidyr::unite(foi, col = 'uid', c(gene,coding,amino_acid_change,locus), remove = FALSE, sep = "__")
@@ -65,6 +100,8 @@ snv_read = function(filepath){
 }
 
 variant_complete_table = function(snv_path_1,snv_path_2){
+  snv_path_1 = as.character(snv_path_1)
+  snv_path_2 = as.character(snv_path_2)
   f1 = snv_read(snv_path_1)
   f2 = snv_read(snv_path_2)
   fa1 = dplyr::select(f1, uid, 1) %>% dplyr::distinct()
@@ -72,9 +109,7 @@ variant_complete_table = function(snv_path_1,snv_path_2){
   complete_table = dplyr::full_join(fa1,fa2, by = c("uid"))
   return(complete_table)
 }
-```
 
-```{r}
 variant_subset_table = function(complete_table){
   numeric_table = dplyr::select(complete_table, where(is.numeric))
   missing_hits = complete_table$uid[which(is.na(rowMeans(numeric_table)))]
@@ -87,13 +122,22 @@ variant_subset_table = function(complete_table){
   #subset_table_ls = dplyr::group_by(subset_table, name) %>% dplyr::group_split()
   return(subset_table)
 }
+
 ```
 
+## Aggregate file comparisons by directory structure
+```{r}
+preps = list.files(path = diroi, pattern = "prep_snv.txt", recursive = TRUE, full.names = TRUE)
+path_table = data.frame(dirs = NA, snv_txt = preps)
+path_table$dirs = dirname(dirname(path_table$snv_txt))
+path_table_ls = dplyr::group_by(path_table, dirs) %>% dplyr::group_split()
+```
 
 ```{r, eval=FALSE}
 return_discordant_variant_coordinates =  function(snv_path_1,snv_path_2){
   complete_table = variant_complete_table(snv_path_1, snv_path_2)
   subset_table = variant_subset_table(complete_table)
+  subset_table = subset_table$subset_table
   if(is.na(subset_table)){
     return(NA)
   }
@@ -121,23 +165,75 @@ return_discordant_variant_coordinates =  function(snv_path_1,snv_path_2){
 
 ## Loop over all entries
 ```{r}
-new_list = list()
+discordant_list = list()
+complete_list = list()
 for (i in seq_along(path_table_ls)){
-  # f1 = snv_read(snv_path_1)
-  # f2 = snv_read(snv_path_2)
+  snv_path_1 = path_table_ls[[i]]$snv_txt[1]
+  snv_path_2 = path_table_ls[[i]]$snv_txt[2]
+  f1 = snv_read(snv_path_1)
+  f2 = snv_read(snv_path_2)
   #f_total = dplyr::bind_rows(f1, f2)
-  complete_table = variant_complete_table(path_table_ls[[i]]$snv_txt[1],
-                                                        path_table_ls[[i]]$snv_txt[2])
-  new_list[[i]] = variant_subset_table(complete_table)
+  complete_table = variant_complete_table(snv_path_1,snv_path_2)
+  subset_table = variant_subset_table(complete_table)
+  discordant_list[[i]] = subset_table
+  complete_table = tidyr::pivot_longer(complete_table,-c(uid)) 
+  complete_list[[i]] = complete_table
 }
 
-res = dplyr::bind_rows(new_list[!is.na(new_list)])
-res = tidyr::separate(res, col = 'uid', into = c('gene','coding','amino_acid_change','locus'),sep = "__")
-res$chr = extract_chr(res$locus)
-res$end = extract_start(res$locus)
-res$start = extract_start(res$locus)
-res = dplyr::relocate(res, chr, start, end)
-readr::write_tsv(res, paste0(diroi,"/Discordant_variant_list.tsv"))
+```
 
+```{r}
+complete_table = add_coordinates(complete_list)
+discordant_table = add_coordinates(discordant_list)
+
+compl = join_parameters_and_res(complete_table) 
+disc = join_parameters_and_res(discordant_table)
+```
+
+## Generate Variant/WF counts
+```{r}
+total_variants_count = count_variant_wf_version(compl)
+discordant_variants_count = count_variant_wf_version(disc)
+concordant_ls = compl |>
+  dplyr::group_by(pcr_id, uid) |>
+  dplyr::group_split()
+concordant_ls = dplyr::bind_rows(concordant_ls[which(unlist(lapply(concordant_ls, nrow)) == 2)])
+concordant_variants_count = count_variant_wf_version(concordant_ls)
+```
+
+```{r}
+# detailed exports
+readr::write_tsv(disc, paste0(diroi,"/Discordant_variant_list_filename.tsv"))
+readr::write_tsv(concordant_ls, paste0(diroi,"/Concordant_variant_list_filename.tsv"))
+readr::write_tsv(compl, paste0(diroi,"/Complete_variant_list_filename.tsv"))
+
+## summary exports 
+readr::write_tsv(discordant_variants_count, paste0(diroi,"/Discordant_variant_workflow_count.tsv"))
+readr::write_tsv(concordant_variants_count, paste0(diroi,"/Concordant_variant_workflow_count.tsv"))
+readr::write_tsv(total_variants_count, paste0(diroi,"/Complete_variant_workflow_count.tsv"))
+
+```
+
+## Overviews
+ 
+### Total variant counts
+```{r}
+total_variants_count = dplyr::ungroup(total_variants_count)
+total_variants_count = dplyr::select(total_variants_count, -c(1:3))
+dload_DT(total_variants_count)
+```
+
+### Discordant variant counts
+```{r}
+discordant_variants_count = dplyr::ungroup(discordant_variants_count)
+discordant_variants_count = dplyr::select(discordant_variants_count, -c(1:3))
+dload_DT(discordant_variants_count)
+```
+
+### Concordant variant counts
+```{r}
+concordant_variants_count = dplyr::ungroup(concordant_variants_count)
+concordant_variants_count = dplyr::select(concordant_variants_count, -c(1:3))
+dload_DT(concordant_variants_count)
 ```
 
