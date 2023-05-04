@@ -129,7 +129,7 @@ variant_subset_table = function(complete_table){
 ```{r}
 preps = list.files(path = diroi, pattern = "prep_snv.txt", recursive = TRUE, full.names = TRUE)
 path_table = data.frame(dirs = NA, snv_txt = preps)
-path_table$dirs = dirname(dirname(path_table$snv_txt))
+path_table$dirs = dirname(dirname(as.character(path_table$snv_txt)))
 path_table_ls = dplyr::group_by(path_table, dirs) %>% dplyr::group_split()
 ```
 
