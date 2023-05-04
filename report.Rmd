@@ -168,8 +168,8 @@ return_discordant_variant_coordinates =  function(snv_path_1,snv_path_2){
 discordant_list = list()
 complete_list = list()
 for (i in seq_along(path_table_ls)){
-  snv_path_1 = path_table_ls[[i]]$snv_txt[1]
-  snv_path_2 = path_table_ls[[i]]$snv_txt[2]
+  snv_path_1 = as.character(path_table_ls[[i]]$snv_txt[1])
+  snv_path_2 = as.character(path_table_ls[[i]]$snv_txt[2])
   f1 = snv_read(snv_path_1)
   f2 = snv_read(snv_path_2)
   #f_total = dplyr::bind_rows(f1, f2)
