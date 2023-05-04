@@ -49,16 +49,6 @@ extract_start = function(locusstring){
 return(start)
 }
  
-create_discordant_igv_report = function(snv_path_1, snv_path_2){
-    snv_path_1 = as.character(snv_path_1)
-    snv_path_2 = as.character(snv_path_2)
-
-  #f_total = dplyr::bind_rows(f1, f2)
-  complete_table = variant_complete_table(snv_path_1,snv_path_2)
-  subset_table = variant_subset_table(complete_table)
-  discordant_list[[i]] = subset_table
-}
-
 
 read_foi = function(filepath){
   foi = readr::read_tsv(filepath)
@@ -91,8 +81,13 @@ count_variant_wf_version = function(parameter_table){
                      values_from = n)
   return(parameter_table)
 }
-add_coordinates = function(res_list){
+
+remove_na_entries = function(res_list){
   res_table = dplyr::bind_rows(res_list[!is.na(res_list)])
+  return(res_table)
+}
+
+add_coordinates = function(res_table){
   res_table = tidyr::separate(res_table, col = 'uid', into = c('gene','coding','amino_acid_change','locus'),sep = "__", remove = FALSE)
   res_table$chr = extract_chr(res_table$locus)
   res_table$end = extract_start(res_table$locus)
@@ -106,9 +101,7 @@ snv_read = function(filepath){
   foi$filepath = filepath
   foi = dplyr::relocate(foi, percent_frequency)
   base_name = basename(dirname(unique(foi$filepath)))
-  dir_path = dirname(dirname(unique(foi$filepath)))
   colnames(foi) = gsub("percent_frequency", base_name, colnames(foi))
-  foi$dir_path = dir_path
   return(foi)
 }
 
@@ -121,6 +114,27 @@ variant_complete_table = function(snv_path_1, snv_path_2){
   fa2 = dplyr::select(f2, uid, 1) %>% dplyr::distinct()
   complete_table = dplyr::full_join(fa1,fa2, by = c("uid"))
   return(complete_table)
+}
+
+##### IGV coordinates
+report_igv_coords = function(snv_path_1, snv_path_2){
+  snv_path_1 = as.character(snv_path_1)
+  snv_path_2 = as.character(snv_path_2)
+  dir_path_1 = dirname(dirname(snv_path_1))
+  dir_path_2 = dirname(dirname(snv_path_2))
+  if(dir_path_1 == dir_path_2){
+    compl_table = variant_complete_table(snv_path_1, snv_path_2)
+    subset_table = variant_subset_table(compl_table)
+    igv_coords_path = paste0(dir_path_1, '/igv_coords.txt')
+    if(!is.na(subset_table)){
+    subset_table = add_coordinates(subset_table)
+    subset_table = join_parameters_and_res(subset_table)
+    subset_table = dplyr::select(subset_table, -uid)
+    readr::write_tsv(subset_table, file = igv_coords_path)
+    }else{
+          write.table(NA, file = paste0(dir_path_1, "/no_discordant_variants.log"))
+    }
+  }
 }
 
 variant_subset_table = function(complete_table){
@@ -184,7 +198,7 @@ complete_list = list()
 for (i in seq_along(path_table_ls)){
   snv_path_1 = as.character(path_table_ls[[i]]$snv_txt[1])
   snv_path_2 = as.character(path_table_ls[[i]]$snv_txt[2])
-
+  report_igv_coords(snv_path_1, snv_path_2)
   #f_total = dplyr::bind_rows(f1, f2)
   complete_table = variant_complete_table(snv_path_1,snv_path_2)
   subset_table = variant_subset_table(complete_table)
@@ -196,11 +210,15 @@ for (i in seq_along(path_table_ls)){
 ```
 
 ```{r}
-complete_table = add_coordinates(complete_list)
-discordant_table = add_coordinates(discordant_list)
+complete_tbl = remove_na_entries(complete_list)
+discordant_tbl = remove_na_entries(discordant_list)
+
+complete_table = add_coordinates(complete_tbl)
+discordant_table = add_coordinates(discordant_tbl)
 
 compl = join_parameters_and_res(complete_table) 
 disc = join_parameters_and_res(discordant_table)
+
 ```
 
 ## Generate Variant/WF counts
