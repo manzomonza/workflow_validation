@@ -49,6 +49,17 @@ extract_start = function(locusstring){
 return(start)
 }
  
+create_discordant_igv_report = function(snv_path_1, snv_path_2){
+    snv_path_1 = as.character(snv_path_1)
+    snv_path_2 = as.character(snv_path_2)
+
+  #f_total = dplyr::bind_rows(f1, f2)
+  complete_table = variant_complete_table(snv_path_1,snv_path_2)
+  subset_table = variant_subset_table(complete_table)
+  discordant_list[[i]] = subset_table
+}
+
+
 read_foi = function(filepath){
   foi = readr::read_tsv(filepath)
   foi$filepath = filepath
@@ -95,11 +106,13 @@ snv_read = function(filepath){
   foi$filepath = filepath
   foi = dplyr::relocate(foi, percent_frequency)
   base_name = basename(dirname(unique(foi$filepath)))
+  dir_path = dirname(dirname(unique(foi$filepath)))
   colnames(foi) = gsub("percent_frequency", base_name, colnames(foi))
+  foi$dir_path = dir_path
   return(foi)
 }
 
-variant_complete_table = function(snv_path_1,snv_path_2){
+variant_complete_table = function(snv_path_1, snv_path_2){
   snv_path_1 = as.character(snv_path_1)
   snv_path_2 = as.character(snv_path_2)
   f1 = snv_read(snv_path_1)
@@ -127,6 +140,7 @@ variant_subset_table = function(complete_table){
 
 ## Aggregate file comparisons by directory structure
 ```{r}
+diroi = getwd()
 preps = list.files(path = diroi, pattern = "prep_snv.txt", recursive = TRUE, full.names = TRUE)
 path_table = data.frame(dirs = NA, snv_txt = preps)
 path_table$dirs = dirname(dirname(as.character(path_table$snv_txt)))
@@ -170,8 +184,7 @@ complete_list = list()
 for (i in seq_along(path_table_ls)){
   snv_path_1 = as.character(path_table_ls[[i]]$snv_txt[1])
   snv_path_2 = as.character(path_table_ls[[i]]$snv_txt[2])
-  f1 = snv_read(snv_path_1)
-  f2 = snv_read(snv_path_2)
+
   #f_total = dplyr::bind_rows(f1, f2)
   complete_table = variant_complete_table(snv_path_1,snv_path_2)
   subset_table = variant_subset_table(complete_table)
