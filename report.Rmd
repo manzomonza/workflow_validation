@@ -194,8 +194,8 @@ disc = join_parameters_and_res(discordant_table)
 ```{r}
 total_variants_count = count_variant_wf_version(compl)
 discordant_variants_count = count_variant_wf_version(disc)
-concordant_ls = compl |>
-  dplyr::group_by(pcr_id, uid) |>
+concordant_ls = compl %>%
+  dplyr::group_by(pcr_id, uid) %>%
   dplyr::group_split()
 concordant_ls = dplyr::bind_rows(concordant_ls[which(unlist(lapply(concordant_ls, nrow)) == 2)])
 concordant_variants_count = count_variant_wf_version(concordant_ls)
