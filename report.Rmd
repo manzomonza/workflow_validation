@@ -154,7 +154,6 @@ variant_subset_table = function(complete_table){
 
 ## Aggregate file comparisons by directory structure
 ```{r}
-diroi = getwd()
 preps = list.files(path = diroi, pattern = "prep_snv.txt", recursive = TRUE, full.names = TRUE)
 path_table = data.frame(dirs = NA, snv_txt = preps)
 path_table$dirs = dirname(dirname(as.character(path_table$snv_txt)))
