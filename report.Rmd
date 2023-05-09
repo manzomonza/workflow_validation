@@ -257,6 +257,7 @@ write_out_variants = function(variant_element){
     variant_element = dplyr::select(variant_element, -uid)
   }
   filename = stringr::str_replace(filename, pattern = ':', replacement = "__")
+  filename = stringr::str_replace(filename, pattern = '>', replacement = "_")
   filename = paste0(diroi,'/variants_directory/', filename, ".tsv")
   readr::write_tsv(variant_element, file = filename)
 }
