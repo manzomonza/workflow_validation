@@ -48,13 +48,6 @@ extract_start = function(locusstring){
   start = as.numeric(start)
 return(start)
 }
- 
-
-read_foi = function(filepath){
-  foi = readr::read_tsv(filepath)
-  foi$filepath = filepath
-  return(foi)
-}
 
 return_discordant_coordinates = function(input_file, subset_table){
   toi = subset(input_file, uid %in% subset_table$uid)
@@ -154,6 +147,7 @@ variant_subset_table = function(complete_table){
 
 ## Aggregate file comparisons by directory structure
 ```{r}
+#diroi = getwd()
 preps = list.files(path = diroi, pattern = "prep_snv.txt", recursive = TRUE, full.names = TRUE)
 path_table = data.frame(dirs = NA, snv_txt = preps)
 path_table$dirs = dirname(dirname(as.character(path_table$snv_txt)))
@@ -244,8 +238,33 @@ readr::write_tsv(total_variants_count, paste0(diroi,"/Complete_variant_workflow_
 
 ```
 
+# 
+```{r}
+group_split_variants = function(variant_table){
+  variant_ls = dplyr::group_by(variant_table, uid) %>%
+  dplyr::select(-c(chr, start, end, name, locus)) %>%
+  dplyr::group_split()
+  return(variant_ls)
+}
+
+write_out_variants = function(variant_element){
+  if(!dir.exists('variants_directory')){
+    dir.create('variants_directory')
+  }
+  filename = unique(variant_element$uid)
+  filename = stringr::str_replace(filename, pattern = ':', replacement = "__")
+  filename = paste0(diroi,'/variants_directory/', filename, ".tsv")
+  readr::write_tsv(variant_element, file = filename)
+}
+
+lapply(group_split_variants(disc) , write_out_variants)
+group_split_variants(disc)[[1]]$uid
+
+```
+
+
+
 ## Overviews
- 
 ### Total variant counts
 ```{r}
 total_variants_count = dplyr::ungroup(total_variants_count)
