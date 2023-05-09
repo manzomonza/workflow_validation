@@ -248,18 +248,15 @@ group_split_variants = function(variant_table){
 }
 
 write_out_variants = function(variant_element){
-  if(!dir.exists('variants_directory')){
-    dir.create('variants_directory')
+  if(!dir.exists(paste0(diroi,'/variants_directory'))){
+    dir.create(paste0(diroi,'/variants_directory'))
   }
   filename = unique(variant_element$uid)
   filename = stringr::str_replace(filename, pattern = ':', replacement = "__")
   filename = paste0(diroi,'/variants_directory/', filename, ".tsv")
   readr::write_tsv(variant_element, file = filename)
 }
-
 lapply(group_split_variants(disc) , write_out_variants)
-group_split_variants(disc)[[1]]$uid
-
 ```
 
 
