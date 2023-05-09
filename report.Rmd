@@ -258,7 +258,7 @@ write_out_variants = function(variant_element){
   }
   filename = stringr::str_replace(filename, pattern = ':', replacement = "__")
   filename = stringr::str_replace(filename, pattern = '>', replacement = "_")
-  filename = stringr::str_replace(filename, pattern = '__?__', replacement = "__")
+  filename = stringr::str_replace(filename, pattern = '__p\\.\\?__', replacement = "__")
   filename = paste0(diroi,'/variants_directory/', filename, ".tsv")
   readr::write_tsv(variant_element, file = filename)
 }
