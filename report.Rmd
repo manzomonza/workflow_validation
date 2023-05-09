@@ -238,8 +238,8 @@ readr::write_tsv(total_variants_count, paste0(diroi,"/Complete_variant_workflow_
 
 ```
 
-# 
-```{r}
+## Generate variant specific output
+```{r, include=FALSE}
 group_split_variants = function(variant_table){
   variant_ls = dplyr::group_by(variant_table, uid) %>%
   dplyr::select(-c(chr, start, end, name, locus)) %>%
