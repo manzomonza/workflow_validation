@@ -167,7 +167,7 @@ read_input_tsv = function(prep_snvs){
   }
   toi$name = base_name
   extract_tif = extract_parameters_from_dirname(toi$name)
-  tiffo = dplyr::left_join(toi, extract_tif) |> dplyr::distinct()
+  tiffo = dplyr::left_join(toi, extract_tif) %>% dplyr::distinct()
   return(tiffo)
 }
 
@@ -215,8 +215,8 @@ return_discordant_variant_coordinates =  function(snv_path_1,snv_path_2){
 discordant_list = list()
 complete_list = list()
 for (i in seq_along(path_table_ls)){
-  snv_path_1 = as.character(path_table_ls[[3]]$snv_txt[1])
-  snv_path_2 = as.character(path_table_ls[[3]]$snv_txt[2])
+  snv_path_1 = as.character(path_table_ls[[i]]$snv_txt[1])
+  snv_path_2 = as.character(path_table_ls[[i]]$snv_txt[2])
   report_igv_coords(snv_path_1, snv_path_2)
   #f_total = dplyr::bind_rows(f1, f2)
   complete_table = variant_complete_table(snv_path_1,snv_path_2)
