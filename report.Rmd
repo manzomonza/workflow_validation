@@ -148,7 +148,7 @@ variant_subset_table = function(complete_table){
 
 ## Aggregate file comparisons by directory structure
 ```{r}
-#diroi = getwd()
+#diroi = paste0(getwd(), "/OCAPlus")
 preps = list.files(path = diroi, pattern = "prep_snv.txt", recursive = TRUE, full.names = TRUE)
 
 ```
@@ -257,11 +257,11 @@ concordant_variants_count = count_variant_wf_version(concordant_ls)
 
 ```{r}
 # detailed exports
-disc = dplyr::left_join(disc, dplyr::bind_rows(tifs))
+disc = dplyr::left_join(disc, dplyr::bind_rows(tifs), by = c('uid','name','pcr_id','Bno','panel','wf_version'))
 readr::write_tsv(disc, paste0(diroi,"/Discordant_variant_list_filename.tsv"))
-concordant_ls = dplyr::left_join(concordant_ls, dplyr::bind_rows(tifs))
+concordant_ls = dplyr::left_join(concordant_ls, dplyr::bind_rows(tifs),by = c('uid','name','pcr_id','Bno','panel','wf_version'))
 readr::write_tsv(concordant_ls, paste0(diroi,"/Concordant_variant_list_filename.tsv"))
-compl = dplyr::left_join(compl, dplyr::bind_rows(tifs))
+compl = dplyr::left_join(compl, dplyr::bind_rows(tifs),by = c('uid','name','pcr_id','Bno','panel','wf_version'))
 readr::write_tsv(compl, paste0(diroi,"/Complete_variant_list_filename.tsv"))
 
 ## summary exports 
