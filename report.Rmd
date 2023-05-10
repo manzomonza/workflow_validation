@@ -163,7 +163,7 @@ read_input_tsv = function(prep_snvs){
     tsv_file = readr::read_tsv(tsvs, comment = "##") %>% janitor::clean_names()
     toi = tsv_file %>%
     tidyr::unite(col = 'uid', c(genes,coding,amino_acid_change,locus), remove = FALSE, sep = "__") %>%
-    dplyr::select(uid, homopolymer_length:coverage)
+    dplyr::select(uid, homopolymer_length:ucsc_common_sn_ps)
   }
   toi$name = base_name
   extract_tif = extract_parameters_from_dirname(toi$name)
@@ -259,7 +259,9 @@ concordant_variants_count = count_variant_wf_version(concordant_ls)
 # detailed exports
 disc = dplyr::left_join(disc, dplyr::bind_rows(tifs))
 readr::write_tsv(disc, paste0(diroi,"/Discordant_variant_list_filename.tsv"))
+concordant_ls = dplyr::left_join(concordant_ls, dplyr::bind_rows(tifs))
 readr::write_tsv(concordant_ls, paste0(diroi,"/Concordant_variant_list_filename.tsv"))
+compl = dplyr::left_join(compl, dplyr::bind_rows(tifs))
 readr::write_tsv(compl, paste0(diroi,"/Complete_variant_list_filename.tsv"))
 
 ## summary exports 
