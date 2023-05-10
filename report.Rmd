@@ -30,6 +30,7 @@ extract_parameters_from_dirname = function(watchdog_dirpath){
                           wf_version = rec[4])
   return(parameters)
 }
+
 dload_DT = function(data_table){
   data_table %>%
   DT::datatable(extensions = 'Buttons',
@@ -61,7 +62,7 @@ return_discordant_coordinates = function(input_file, subset_table){
 }
 join_parameters_and_res = function(results_table){
   results_table = dplyr::filter(results_table, !is.na(value))
-  parameters = dplyr::bind_rows(lapply(results_table$name,extract_parameters_from_dirname))
+  parameters = dplyr::bind_rows(lapply(results_table$name, extract_parameters_from_dirname))
   joined_table = dplyr::left_join(results_table, parameters) 
   joined_table = dplyr::distinct(joined_table)
   return(joined_table)
@@ -147,8 +148,33 @@ variant_subset_table = function(complete_table){
 
 ## Aggregate file comparisons by directory structure
 ```{r}
-#diroi = getwd()
+diroi = getwd()
 preps = list.files(path = diroi, pattern = "prep_snv.txt", recursive = TRUE, full.names = TRUE)
+
+```
+
+
+```{r, include=TRUE}
+read_input_tsv = function(prep_snvs){
+  dir_name = dirname(prep_snvs)
+  tsvs = list.files(path = dir_name, pattern = ".*.tsv", full.names = TRUE)
+  base_name = basename(dir_name)
+  if(length(tsvs) == 1){
+    tsv_file = readr::read_tsv(tsvs, comment = "##") %>% janitor::clean_names()
+    toi = tsv_file %>%
+    tidyr::unite(col = 'uid', c(genes,coding,amino_acid_change,locus), remove = FALSE, sep = "__") %>%
+    dplyr::select(uid, homopolymer_length:coverage)
+  }
+  toi$name = base_name
+  extract_tif = extract_parameters_from_dirname(toi$name)
+  tiffo = dplyr::left_join(toi, extract_tif) |> dplyr::distinct()
+  return(tiffo)
+}
+
+```
+
+
+```{r}
 path_table = data.frame(dirs = NA, snv_txt = preps)
 path_table$dirs = dirname(dirname(as.character(path_table$snv_txt)))
 path_table_ls = dplyr::group_by(path_table, dirs) %>% dplyr::group_split()
@@ -189,8 +215,8 @@ return_discordant_variant_coordinates =  function(snv_path_1,snv_path_2){
 discordant_list = list()
 complete_list = list()
 for (i in seq_along(path_table_ls)){
-  snv_path_1 = as.character(path_table_ls[[i]]$snv_txt[1])
-  snv_path_2 = as.character(path_table_ls[[i]]$snv_txt[2])
+  snv_path_1 = as.character(path_table_ls[[3]]$snv_txt[1])
+  snv_path_2 = as.character(path_table_ls[[3]]$snv_txt[2])
   report_igv_coords(snv_path_1, snv_path_2)
   #f_total = dplyr::bind_rows(f1, f2)
   complete_table = variant_complete_table(snv_path_1,snv_path_2)
@@ -211,7 +237,11 @@ discordant_table = add_coordinates(discordant_tbl)
 
 compl = join_parameters_and_res(complete_table) 
 disc = join_parameters_and_res(discordant_table)
+```
 
+## Add variant metrics
+```{r, include=FALSE}
+tifs = lapply(preps, read_input_tsv)
 ```
 
 ## Generate Variant/WF counts
@@ -227,6 +257,7 @@ concordant_variants_count = count_variant_wf_version(concordant_ls)
 
 ```{r}
 # detailed exports
+disc = dplyr::left_join(disc, dplyr::bind_rows(tifs))
 readr::write_tsv(disc, paste0(diroi,"/Discordant_variant_list_filename.tsv"))
 readr::write_tsv(concordant_ls, paste0(diroi,"/Concordant_variant_list_filename.tsv"))
 readr::write_tsv(compl, paste0(diroi,"/Complete_variant_list_filename.tsv"))
@@ -264,8 +295,6 @@ write_out_variants = function(variant_element){
 }
 lapply(group_split_variants(disc) , write_out_variants)
 ```
-
-
 
 ## Overviews
 ### Total variant counts
